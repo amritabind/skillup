@@ -27,8 +27,8 @@ COPY --from=builder /root/.local /root/.local
 
 # Copy application code
 COPY app/ ./app/
-# Copy example env into a runtime .env inside the image (do not require a repo .env)
-COPY .env.example .env
+# Do not copy any .env files from the repo. Set secrets/environment
+# variables in the Render dashboard instead of baking them into the image.
 COPY requirements.txt .
 
 # Set environment variables
