@@ -1,0 +1,805 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SkillUp — Adaptive Learning</title>
+  <style>
+    :root {
+      --bg:           #07090f;
+      --surface:      #0e1320;
+      --surface2:     #141b2d;
+      --border:       #1c2640;
+      --accent:       #3b82f6;
+      --accent-dim:   rgba(59,130,246,0.18);
+      --accent-glow:  rgba(59,130,246,0.35);
+      --purple:       #8b5cf6;
+      --green:        #22c55e;
+      --red:          #ef4444;
+      --orange:       #f97316;
+      --text:         #dde4f0;
+      --muted:        #5a6a8a;
+      --radius:       14px;
+    }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 28px 16px 40px;
+    }
+
+    /* ── Header ─────────────────────────────────────────── */
+    .header { text-align: center; margin-bottom: 28px; }
+    .logo {
+      font-size: 2rem; font-weight: 800; letter-spacing: -0.03em;
+      background: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%);
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    .tagline { color: var(--muted); font-size: 0.85rem; margin-top: 5px; }
+
+    /* ── Shared card ────────────────────────────────────── */
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 20px;
+      width: 100%; max-width: 580px;
+      margin-bottom: 14px;
+    }
+    .card-label {
+      font-size: 0.72rem; text-transform: uppercase;
+      letter-spacing: 0.09em; color: var(--muted);
+      margin-bottom: 14px;
+    }
+
+    /* ── Agent tabs ─────────────────────────────────────── */
+    .agent-tabs {
+      display: flex; gap: 6px;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 99px; padding: 4px;
+      width: 100%; max-width: 580px;
+      margin-bottom: 14px;
+    }
+    .tab {
+      flex: 1; padding: 10px 8px;
+      border: none; border-radius: 99px;
+      background: transparent; color: var(--muted);
+      cursor: pointer; font-size: 0.78rem; font-weight: 600;
+      transition: all 0.2s;
+      display: flex; align-items: center; justify-content: center; gap: 5px;
+    }
+    .tab:hover { color: var(--text); }
+    .tab.active {
+      background: var(--accent); color: #fff;
+      box-shadow: 0 0 18px var(--accent-glow);
+    }
+
+    /* ── Session panel ──────────────────────────────────── */
+    .session-panel {
+      display: flex; flex-direction: column; align-items: center; gap: 18px;
+    }
+
+    /* Mic button */
+    .mic-wrap { position: relative; }
+    .mic-ring {
+      position: absolute; inset: -10px;
+      border-radius: 50%; border: 2px solid var(--accent);
+      opacity: 0; pointer-events: none;
+      transition: opacity 0.3s;
+    }
+    .mic-ring.on { opacity: 1; animation: ring 1.8s ease-in-out infinite; }
+    @keyframes ring {
+      0%,100% { transform: scale(1);   opacity: 0.5; }
+      50%      { transform: scale(1.12); opacity: 1;   }
+    }
+    .mic-btn {
+      width: 88px; height: 88px; border-radius: 50%; border: none;
+      background: linear-gradient(145deg, #162040, #1e3060);
+      box-shadow: 0 4px 24px rgba(0,0,0,0.5);
+      font-size: 1.8rem; cursor: pointer;
+      transition: transform 0.15s, box-shadow 0.3s;
+      position: relative; z-index: 1;
+    }
+    .mic-btn:hover { transform: scale(1.06); }
+    .mic-btn.live {
+      background: linear-gradient(145deg, #1d3a8a, #3b82f6);
+      box-shadow: 0 4px 32px var(--accent-glow);
+      animation: mic-glow 2s ease-in-out infinite;
+    }
+    @keyframes mic-glow {
+      0%,100% { box-shadow: 0 4px 28px rgba(59,130,246,0.35); }
+      50%      { box-shadow: 0 4px 44px rgba(59,130,246,0.65); }
+    }
+
+    /* Status row */
+    .status-row { display: flex; align-items: center; gap: 8px; }
+    .dot {
+      width: 7px; height: 7px; border-radius: 50%;
+      background: var(--muted); flex-shrink: 0;
+    }
+    .dot.live { background: var(--green); animation: blink 1.3s ease-in-out infinite; }
+    @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.3} }
+    #statusText { font-size: 0.83rem; color: var(--muted); }
+    #statusText.live { color: var(--green); }
+
+    /* Waveform */
+    #waveform {
+      width: 100%; height: 44px;
+      border-radius: 8px; background: var(--surface2);
+      opacity: 0; transition: opacity 0.4s;
+    }
+    #waveform.on { opacity: 1; }
+
+    /* Stop button */
+    #stopBtn {
+      display: none; padding: 9px 28px;
+      background: rgba(239,68,68,0.12);
+      border: 1px solid rgba(239,68,68,0.35);
+      border-radius: 99px; color: #f87171;
+      font-size: 0.82rem; font-weight: 600;
+      cursor: pointer; transition: background 0.2s;
+    }
+    #stopBtn:hover { background: rgba(239,68,68,0.22); }
+
+    /* Camera panel */
+    #cameraPanel { display: none; width: 100%; }
+    #webcam { width: 100%; border-radius: 10px; background: #000; }
+    #photoBtn {
+      display: block; width: 100%; margin-top: 10px;
+      padding: 11px; border-radius: 99px;
+      background: var(--accent-dim); border: 1px solid rgba(59,130,246,0.35);
+      color: #60a5fa; font-size: 0.83rem; font-weight: 600;
+      cursor: pointer; transition: background 0.2s;
+    }
+    #photoBtn:hover { background: rgba(59,130,246,0.28); }
+
+    /* ── Transcript ───────────────────────────────────────── */
+    .transcript-head {
+      display: flex; align-items: center;
+      justify-content: space-between; margin-bottom: 14px;
+    }
+    #clearBtn {
+      font-size: 0.72rem; color: var(--muted); background: none;
+      border: none; cursor: pointer; padding: 2px 8px;
+      border-radius: 4px;
+    }
+    #clearBtn:hover { color: var(--text); background: var(--surface2); }
+
+    .t-body {
+      min-height: 120px; max-height: 300px; overflow-y: auto;
+      display: flex; flex-direction: column; gap: 10px;
+      scrollbar-width: thin; scrollbar-color: var(--border) transparent;
+    }
+    .t-body::-webkit-scrollbar { width: 3px; }
+    .t-body::-webkit-scrollbar-thumb { background: var(--border); border-radius:2px; }
+
+    .msg {
+      display: flex; gap: 9px; align-items: flex-start;
+      animation: msg-in 0.18s ease;
+    }
+    @keyframes msg-in { from{opacity:0;transform:translateY(5px)} to{opacity:1;transform:none} }
+    .avatar {
+      width: 26px; height: 26px; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 0.7rem; font-weight: 700; flex-shrink: 0;
+    }
+    .msg.ai   .avatar { background: var(--accent-dim); color: #60a5fa; }
+    .msg.sys  .avatar { background: transparent; color: var(--muted); font-size: 1rem; }
+    .bubble {
+      border-radius: 4px 12px 12px 12px;
+      padding: 8px 12px; font-size: 0.86rem; line-height: 1.55;
+      max-width: calc(100% - 38px);
+    }
+    .msg.ai  .bubble { background: rgba(30,58,138,0.35); color: var(--text); }
+    .msg.sys .bubble { background: transparent; color: var(--muted); font-size: 0.78rem; font-style: italic; padding: 0; }
+    .msg.err .bubble { background: rgba(239,68,68,0.12); color: #fca5a5; }
+
+    /* Typing dots */
+    #typingRow { display: none; }
+    .typing { display: flex; gap: 4px; padding: 10px 12px; background: rgba(30,58,138,0.3); border-radius: 4px 12px 12px 12px; width: fit-content; }
+    .typing span { width: 5px; height: 5px; border-radius: 50%; background: #60a5fa; animation: td 1.2s ease-in-out infinite; }
+    .typing span:nth-child(2) { animation-delay: 0.15s; }
+    .typing span:nth-child(3) { animation-delay: 0.3s; }
+    @keyframes td { 0%,80%,100%{transform:scale(0.6);opacity:0.4} 40%{transform:scale(1);opacity:1} }
+
+    .t-empty { color: var(--muted); font-size: 0.83rem; font-style: italic; text-align: center; padding: 24px 0; }
+
+    /* ── Progress ─────────────────────────────────────────── */
+    .progress-head {
+      display: flex; justify-content: space-between; align-items: center;
+      margin-bottom: 16px;
+    }
+    .xp-display {
+      display: flex; align-items: center; gap: 8px;
+      background: rgba(59,130,246,0.12);
+      padding: 8px 14px; border-radius: 99px;
+      border: 1px solid rgba(59,130,246,0.3);
+    }
+    .xp-val { font-weight: 700; color: #60a5fa; }
+
+    .progress-grid {
+      display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 14px;
+    }
+    .stat-box {
+      background: var(--surface2); border: 1px solid var(--border);
+      padding: 12px; border-radius: 8px; text-align: center;
+    }
+    .stat-val { font-size: 1.4rem; font-weight: 700; color: var(--accent); }
+    .stat-label { font-size: 0.7rem; color: var(--muted); margin-top: 4px; text-transform: uppercase; letter-spacing: 0.05em; }
+
+    .streak-badge {
+      background: rgba(249,115,22,0.15);
+      border: 1px solid rgba(249,115,22,0.3);
+      border-radius: 99px; padding: 4px 12px;
+      font-size: 0.75rem; color: #fb923c; display: inline-flex; align-items: center; gap: 4px;
+    }
+
+    .badges-container {
+      display: grid; grid-template-columns: repeat(auto-fill, minmax(60px, 1fr));
+      gap: 8px; margin-bottom: 14px;
+    }
+    .badge {
+      background: var(--surface2); border: 1px solid var(--border);
+      border-radius: 8px; padding: 12px;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      cursor: help; transition: all 0.2s;
+      position: relative; min-height: 70px;
+    }
+    .badge:hover { background: rgba(59,130,246,0.1); border-color: var(--accent); }
+    .badge.locked { opacity: 0.4; }
+    .badge-icon { font-size: 1.6rem; margin-bottom: 4px; }
+    .badge-name { font-size: 0.6rem; text-align: center; line-height: 1.2; color: var(--muted); }
+    .badge-tooltip {
+      position: absolute; bottom: 100%; left: 50%; transform: translateX(-50%);
+      background: var(--surface); border: 1px solid var(--border); padding: 6px 10px;
+      border-radius: 4px; font-size: 0.65rem; white-space: nowrap; opacity: 0; pointer-events: none;
+      transition: opacity 0.2s; z-index: 10;
+    }
+    .badge:hover .badge-tooltip { opacity: 1; }
+
+    .skill { margin-bottom: 12px; }
+    .skill-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
+    .skill-name { font-size: 0.82rem; font-weight: 600; }
+    .skill-level {
+      font-size: 0.65rem; padding: 2px 8px; border-radius: 99px;
+      background: var(--surface2); color: var(--muted);
+    }
+    .skill-level.intermediate { background: rgba(168,85,247,0.15); color: #d8b4fe; }
+    .skill-level.expert { background: rgba(249,115,22,0.15); color: #fb923c; }
+    .skill-stats {
+      display: flex; gap: 16px; margin-top: 6px; font-size: 0.72rem;
+      color: var(--muted); border-top: 1px solid var(--border); padding-top: 6px;
+    }
+    .skill-stat { display: flex; align-items: center; gap: 3px; }
+    .skill-bar  { height: 5px; background: var(--surface2); border-radius: 99px; overflow: hidden; margin-top: 6px; }
+    .skill-fill { height: 100%; border-radius: 99px; background: linear-gradient(90deg, var(--accent), var(--purple)); transition: width 0.6s ease; }
+
+    .quiz-scores {
+      background: var(--surface2); padding: 10px; border-radius: 8px;
+      font-size: 0.75rem; color: var(--muted); max-height: 120px; overflow-y: auto;
+    }
+    .quiz-item { padding: 4px 0; border-bottom: 1px solid var(--border); }
+    .quiz-item:last-child { border-bottom: none; }
+    .quiz-skill { font-weight: 600; color: var(--text); }
+    .quiz-score { float: right; color: var(--accent); font-weight: 700; }
+
+    /* ── Voice / Speed controls ───────────────────────────── */
+    .voice-speed-card {
+      display: flex; flex-direction: column; gap: 16px;
+    }
+    .vc-row {
+      display: flex; flex-direction: column; gap: 8px;
+    }
+    .vc-label {
+      font-size: 0.72rem; text-transform: uppercase;
+      letter-spacing: 0.09em; color: var(--muted);
+    }
+    .gender-btns {
+      display: flex; gap: 8px;
+    }
+    .gender-btn {
+      flex: 1; padding: 9px 0; border-radius: 99px;
+      border: 1px solid var(--border);
+      background: var(--surface2); color: var(--muted);
+      font-size: 0.82rem; font-weight: 600; cursor: pointer;
+      transition: all 0.2s;
+    }
+    .gender-btn:hover { color: var(--text); border-color: var(--accent); }
+    .gender-btn.active {
+      background: var(--accent-dim); border-color: var(--accent);
+      color: #60a5fa; box-shadow: 0 0 12px var(--accent-glow);
+    }
+    .speed-row {
+      display: flex; align-items: center; gap: 12px;
+    }
+    .speed-row input[type=range] {
+      flex: 1; accent-color: var(--accent); cursor: pointer;
+    }
+    .speed-val {
+      font-size: 0.82rem; color: var(--text);
+      min-width: 36px; text-align: right;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="header">
+    <div class="logo">SkillUp</div>
+    <p class="tagline">Adaptive learning — 5 minutes at a time, anywhere</p>
+  </div>
+
+  <!-- Agent tabs -->
+  <div class="agent-tabs">
+    <button class="tab active" data-agent="coach" onclick="selectAgent('coach',this)">
+      🎯 Skill Coach
+    </button>
+    <button class="tab" data-agent="assessor" onclick="selectAgent('assessor',this)">
+      📸 Progress Check
+    </button>
+    <button class="tab" data-agent="planner" onclick="selectAgent('planner',this)">
+      📅 Planner
+    </button>
+  </div>
+
+  <!-- Voice & Speed card -->
+  <div class="card">
+    <div class="voice-speed-card">
+      <div class="vc-row">
+        <span class="vc-label">Voice</span>
+        <div class="gender-btns">
+          <button class="gender-btn active" id="btnFemale" onclick="setVoice('female',this)">♀ Female</button>
+          <button class="gender-btn" id="btnMale"   onclick="setVoice('male',this)">♂ Male</button>
+        </div>
+      </div>
+      <div class="vc-row">
+        <span class="vc-label">Response speed</span>
+        <div class="speed-row">
+          <span style="font-size:0.78rem;color:var(--muted)">Slow</span>
+          <input type="range" id="speedSlider" min="0.5" max="2.0" step="0.1" value="1.0"
+            oninput="onSpeedChange(this.value)">
+          <span style="font-size:0.78rem;color:var(--muted)">Fast</span>
+          <span class="speed-val" id="speedVal">1.0×</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Session card -->
+  <div class="card">
+    <div class="session-panel">
+
+      <!-- Mic -->
+      <div class="mic-wrap">
+        <div class="mic-ring" id="micRing"></div>
+        <button class="mic-btn" id="micBtn" onclick="toggleSession()">🎤</button>
+      </div>
+
+      <!-- Status -->
+      <div class="status-row">
+        <div class="dot" id="dot"></div>
+        <span id="statusText">Tap the mic to start</span>
+      </div>
+
+      <!-- Waveform -->
+      <canvas id="waveform"></canvas>
+
+      <!-- Camera (assessor only) -->
+      <div id="cameraPanel">
+        <video id="webcam" autoplay muted playsinline></video>
+        <button id="photoBtn" onclick="captureAndSendProgress()">📷 Send Work Photo</button>
+      </div>
+
+      <!-- Stop -->
+      <button id="stopBtn" onclick="stopSession()">⏹ End Session</button>
+
+    </div>
+  </div>
+
+  <!-- Transcript -->
+  <div class="card">
+    <div class="transcript-head">
+      <span class="card-label" style="margin:0">Session transcript</span>
+      <button id="clearBtn" onclick="clearTranscript()">Clear</button>
+    </div>
+    <div class="t-body" id="tbody">
+      <div id="typingRow" class="msg ai">
+        <div class="avatar">AI</div>
+        <div class="typing"><span></span><span></span><span></span></div>
+      </div>
+      <p class="t-empty" id="tEmpty">Your session will appear here…</p>
+    </div>
+  </div>
+
+  <!-- Progress card (NEW SYSTEM) -->
+  <div class="card">
+    <div class="progress-head">
+      <span class="card-label" style="margin:0">📊 Your Progress</span>
+      <span class="streak-badge" id="streakBadge">🔥 0 days</span>
+    </div>
+
+    <!-- XP & Stats -->
+    <div class="progress-grid">
+      <div class="stat-box">
+        <div class="xp-display" style="justify-content: center; background: transparent; border: none; padding: 0;">
+          <span style="font-size: 1.4rem; font-weight: 700; color: #60a5fa;" id="totalXpVal">0</span>
+        </div>
+        <div class="stat-label">Total XP</div>
+      </div>
+      <div class="stat-box">
+        <div class="stat-val" id="hoursVal">0</div>
+        <div class="stat-label">Hours Learned</div>
+      </div>
+      <div class="stat-box">
+        <div class="stat-val" id="modulesVal">0</div>
+        <div class="stat-label">Modules Done</div>
+      </div>
+      <div class="stat-box">
+        <div class="stat-val" id="badgesVal">0</div>
+        <div class="stat-label">Badges Won</div>
+      </div>
+    </div>
+
+    <!-- Badges -->
+    <div style="margin-bottom: 14px;">
+      <div class="card-label" style="margin: 0 0 10px 0;">🏆 Achievements</div>
+      <div class="badges-container" id="badgesContainer">
+        <!-- Populated by JS -->
+      </div>
+    </div>
+
+    <!-- Skills -->
+    <div style="margin-bottom: 14px;">
+      <div class="card-label" style="margin: 0 0 10px 0;">⭐ Skills</div>
+      <div id="skillsContainer">
+        <p style="color: var(--muted); font-size: 0.75rem;">Complete modules to unlock skills</p>
+      </div>
+    </div>
+
+    <!-- Quiz Scores -->
+    <div id="quizScoresSection" style="display: none;">
+      <div class="card-label" style="margin: 0 0 10px 0;">📝 Recent Quizzes</div>
+      <div class="quiz-scores" id="quizScoresContainer">
+        <!-- Populated by JS -->
+      </div>
+    </div>
+  </div>
+
+  <script src="/static/send_image.js"></script>
+  <script>
+    let ws, micCtx, mediaStream, cameraStream, processor, analyser, playCtx, nextPlay = 0, animId;
+    let selectedAgent = 'coach', isLive = false, inlineEl = null;
+    let selectedVoice = 'female', playbackSpeed = 1.0;
+
+    /* ── Voice / Speed ───────────────────────────── */
+    const VOICES = {
+      female: 'Aoede',
+      male:   'Puck'
+    };
+    function setVoice(gender, el) {
+      if (isLive) return;
+      selectedVoice = gender;
+      document.querySelectorAll('.gender-btn').forEach(b => b.classList.remove('active'));
+      el.classList.add('active');
+    }
+    function onSpeedChange(val) {
+      playbackSpeed = parseFloat(val);
+      document.getElementById('speedVal').textContent = playbackSpeed.toFixed(1) + '×';
+    }
+    const userId = 'learner_' + Math.random().toString(36).substr(2, 9);
+
+    /* ── Agent selection ─────────────────────────── */
+    function selectAgent(a, el) {
+      if (isLive) return;
+      selectedAgent = a;
+      document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+      el.classList.add('active');
+    }
+
+    /* ── Session ──────────────────────────────── */
+    function toggleSession() { if (!isLive) startSession(); }
+
+    async function startSession() {
+      setLive(true, 'Connecting…');
+      const voiceName = VOICES[selectedVoice];
+      ws = new WebSocket(`ws://localhost:8000/ws/${selectedAgent}/${userId}?voice=${voiceName}`);
+      ws.binaryType = 'arraybuffer';
+
+      ws.onmessage = ({ data }) => {
+        const msg = JSON.parse(data);
+        hideTyping();
+        if (msg.type === 'audio')   { playAudio(msg); }
+        if (msg.type === 'transcript') { addMsg(msg.data, 'ai'); }
+        if (msg.type === 'text')    { addInline(msg.data); }
+        if (msg.type === 'interrupted') { resetPlayback(); }
+        if (msg.type === 'turn_complete') { inlineEl = null; }
+        if (msg.type === 'error')   { addMsg('⚠️ ' + msg.data, 'err'); }
+      };
+
+      ws.onopen = async () => {
+        try {
+          mediaStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+          micCtx  = new AudioContext({ sampleRate: 16000 });
+          analyser = micCtx.createAnalyser();
+          analyser.fftSize = 256;
+          const src = micCtx.createMediaStreamSource(mediaStream);
+          processor = micCtx.createScriptProcessor(4096, 1, 1);
+          src.connect(analyser);
+          src.connect(processor);
+          processor.connect(micCtx.destination);
+          processor.onaudioprocess = e => {
+            const buf = convertPCM(e.inputBuffer.getChannelData(0));
+            if (ws && ws.readyState === WebSocket.OPEN) ws.send(buf);
+          };
+          startWave();
+
+          if (selectedAgent === 'assessor') {
+            document.getElementById('cameraPanel').style.display = 'block';
+            try {
+              cameraStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+              document.getElementById('webcam').srcObject = cameraStream;
+            } catch(_) {}
+          }
+
+          setLive(true, 'Live — speak to your agent');
+          showTyping();
+          addMsg('Session started. Say hello!', 'sys');
+        } catch(err) {
+          setLive(false, 'Mic access denied');
+          addMsg('Mic error: ' + err.message, 'err');
+          if (ws) ws.close();
+        }
+      };
+
+      ws.onerror = () => setLive(false, 'Connection error — is the server running?');
+      ws.onclose = () => { cleanup(); addMsg('Session ended.', 'sys'); };
+    }
+
+    function stopSession() { if (ws) ws.close(); cleanup(); }
+
+    function cleanup() {
+      if (cameraStream) { cameraStream.getTracks().forEach(t => t.stop()); cameraStream = null; document.getElementById('webcam').srcObject = null; }
+      if (mediaStream) mediaStream.getTracks().forEach(t => t.stop());
+      if (processor)  { processor.disconnect(); processor = null; }
+      if (micCtx)     { micCtx.close(); micCtx = null; }
+      if (animId)     { cancelAnimationFrame(animId); animId = null; }
+      document.getElementById('waveform').classList.remove('on');
+      document.getElementById('cameraPanel').style.display = 'none';
+      setLive(false, 'Tap the mic to start');
+      hideTyping();
+      // Award XP for completed session
+      awardSessionXP(selectedAgent, 50);
+    }
+
+    /* ── UI helpers ─────────────────────────────── */
+    function setLive(on, text) {
+      isLive = on;
+      document.getElementById('dot').className      = 'dot' + (on ? ' live' : '');
+      document.getElementById('statusText').className = on ? 'live' : '';
+      document.getElementById('statusText').textContent = text;
+      document.getElementById('micBtn').className   = 'mic-btn' + (on ? ' live' : '');
+      document.getElementById('micRing').className  = 'mic-ring' + (on ? ' on' : '');
+      document.getElementById('stopBtn').style.display = on ? 'block' : 'none';
+    }
+    function showTyping() {
+      const r = document.getElementById('typingRow');
+      r.style.display = 'flex';
+      const b = document.getElementById('tbody');
+      b.appendChild(r); scrollT();
+    }
+    function hideTyping() {
+      document.getElementById('typingRow').style.display = 'none';
+    }
+
+    /* ── Transcript ──────────────────────────────── */
+    function addMsg(text, cls) {
+      rmEmpty();
+      const wrap = document.createElement('div');
+      wrap.className = 'msg ' + cls;
+      const av = document.createElement('div');
+      av.className = 'avatar';
+      av.textContent = cls === 'ai' ? 'AI' : '·';
+      const bl = document.createElement('div');
+      bl.className = 'bubble';
+      bl.textContent = text;
+      wrap.appendChild(av); wrap.appendChild(bl);
+      const box = document.getElementById('tbody');
+      const typing = document.getElementById('typingRow');
+      box.insertBefore(wrap, typing);
+      inlineEl = null; scrollT();
+    }
+    function addInline(text) {
+      rmEmpty();
+      if (!inlineEl) {
+        const wrap = document.createElement('div');
+        wrap.className = 'msg ai';
+        const av = document.createElement('div'); av.className = 'avatar'; av.textContent = 'AI';
+        const bl = document.createElement('div'); bl.className = 'bubble';
+        wrap.appendChild(av); wrap.appendChild(bl);
+        const box = document.getElementById('tbody');
+        box.insertBefore(wrap, document.getElementById('typingRow'));
+        inlineEl = bl;
+      }
+      inlineEl.textContent += text; scrollT();
+    }
+    function rmEmpty() {
+      const e = document.getElementById('tEmpty');
+      if (e) e.remove();
+    }
+    function scrollT() {
+      const b = document.getElementById('tbody');
+      b.scrollTop = b.scrollHeight;
+    }
+    function clearTranscript() {
+      const box = document.getElementById('tbody');
+      box.innerHTML = `
+        <div id="typingRow" class="msg ai" style="display:none">
+          <div class="avatar">AI</div>
+          <div class="typing"><span></span><span></span><span></span></div>
+        </div>
+        <p class="t-empty" id="tEmpty">Your session will appear here…</p>`;
+      inlineEl = null;
+    }
+
+    /* ── Waveform ───────────────────────────────── */
+    function startWave() {
+      const c = document.getElementById('waveform');
+      c.classList.add('on');
+      const ctx = c.getContext('2d');
+      function draw() {
+        animId = requestAnimationFrame(draw);
+        c.width = c.offsetWidth; c.height = c.offsetHeight;
+        const W = c.width, H = c.height;
+        ctx.clearRect(0, 0, W, H);
+        if (!analyser) return;
+        const d = new Uint8Array(analyser.frequencyBinCount);
+        analyser.getByteFrequencyData(d);
+        const bars = 52, bw = (W / bars) - 1.5;
+        for (let i = 0; i < bars; i++) {
+          const v = d[Math.floor(i * d.length / bars)] / 255;
+          const h = Math.max(3, v * H * 0.88);
+          const x = i * (bw + 1.5);
+          ctx.fillStyle = `rgba(59,130,246,${0.35 + v * 0.65})`;
+          ctx.beginPath();
+          ctx.roundRect(x, (H - h) / 2, bw, h, 2);
+          ctx.fill();
+        }
+      }
+      draw();
+    }
+
+    /* ── Audio playback ───────────────────────────── */
+    function resetPlayback() {
+      if (playCtx) playCtx.close();
+      playCtx = null; nextPlay = 0;
+    }
+    function playAudio({ data, mime }) {
+      if (!playCtx || playCtx.state === 'closed') {
+        playCtx = new AudioContext({ sampleRate: 24000 });
+        nextPlay = 0;
+      }
+      const raw = Uint8Array.from(atob(data), c => c.charCodeAt(0));
+      // PCM s16le decode
+      const pcm16 = new Int16Array(raw.buffer, raw.byteOffset, Math.floor(raw.byteLength / 2));
+      const f32   = new Float32Array(pcm16.length);
+      for (let i = 0; i < pcm16.length; i++) f32[i] = pcm16[i] / 32768;
+      const buf = playCtx.createBuffer(1, f32.length, 24000);
+      buf.copyToChannel(f32, 0);
+      const src = playCtx.createBufferSource();
+      src.buffer = buf;
+      src.playbackRate.value = playbackSpeed;
+      src.connect(playCtx.destination);
+      const at = Math.max(playCtx.currentTime + 0.02, nextPlay);
+      src.start(at);
+      nextPlay = at + buf.duration / playbackSpeed;
+    }
+
+    /* ── PCM convert ──────────────────────────────── */
+    function convertPCM(f32) {
+      const out = new Int16Array(f32.length);
+      for (let i = 0; i < f32.length; i++)
+        out[i] = Math.max(-32768, Math.min(32767, f32[i] * 32768));
+      return out.buffer;
+    }
+
+    /* ── Photo capture ────────────────────────────── */
+    function captureAndSendProgress() { sendProgressPhoto(ws); }
+
+    /* ── Progress System ──────────────────────────── */
+    async function loadProgress() {
+      try {
+        const res = await fetch(`/api/progress/${userId}`);
+        const progress = await res.json();
+        renderProgress(progress);
+      } catch(e) {
+        console.log('Progress fetch:', e.message);
+      }
+    }
+
+    function renderProgress(progress) {
+      // XP & Stats
+      document.getElementById('totalXpVal').textContent = progress.total_xp;
+      document.getElementById('hoursVal').textContent = Math.round(progress.total_hours * 10) / 10;
+      document.getElementById('modulesVal').textContent = progress.modules_completed.length;
+      document.getElementById('badgesVal').textContent = progress.badge_count;
+      document.getElementById('streakBadge').textContent = `🔥 ${progress.streak_days} days`;
+
+      // Badges
+      const badgesContainer = document.getElementById('badgesContainer');
+      badgesContainer.innerHTML = '';
+      const allBadgeIds = Object.keys(progress.badges);
+      Object.values(progress.badges).forEach(badge => {
+        const div = document.createElement('div');
+        div.className = 'badge';
+        div.innerHTML = `
+          <div class="badge-icon">${badge.icon}</div>
+          <div class="badge-name">${badge.name}</div>
+          <div class="badge-tooltip">${badge.description}</div>
+        `;
+        badgesContainer.appendChild(div);
+      });
+
+      // Skills
+      const skillsContainer = document.getElementById('skillsContainer');
+      if (Object.keys(progress.skills).length > 0) {
+        skillsContainer.innerHTML = '';
+        Object.values(progress.skills).forEach(skill => {
+          const xpPercent = Math.min(100, (skill.xp / 500) * 100);
+          const div = document.createElement('div');
+          div.className = 'skill';
+          div.innerHTML = `
+            <div class="skill-header">
+              <span class="skill-name">${skill.name}</span>
+              <span class="skill-level ${skill.level.toLowerCase()}">${skill.level}</span>
+            </div>
+            <div class="skill-bar"><div class="skill-fill" style="width:${xpPercent}%"></div></div>
+            <div class="skill-stats">
+              <div class="skill-stat">⭐ ${skill.xp} XP</div>
+              <div class="skill-stat">✅ ${skill.modules_completed} modules</div>
+              <div class="skill-stat">📚 ${Math.round(skill.hours_learned * 10) / 10}h</div>
+            </div>
+          `;
+          skillsContainer.appendChild(div);
+        });
+      }
+
+      // Quiz Scores
+      if (progress.quiz_scores.length > 0) {
+        document.getElementById('quizScoresSection').style.display = 'block';
+        const quizContainer = document.getElementById('quizScoresContainer');
+        quizContainer.innerHTML = progress.quiz_scores.slice(-5).map(q => `
+          <div class="quiz-item">
+            <span class="quiz-skill">${q.skill}: <span class="quiz-score">${q.score}%</span></span>
+          </div>
+        `).join('');
+      }
+    }
+
+    // Load progress on startup
+    loadProgress();
+    // Reload every 10 seconds
+    setInterval(loadProgress, 10000);
+
+    /* ── Demo: Award XP when session ends ──────────── */
+    async function awardSessionXP(skillName = 'General', xpAmount = 50) {
+      try {
+        await fetch(`/api/progress/${userId}/xp`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ skill: skillName, amount: xpAmount })
+        });
+        loadProgress();
+      } catch(e) {
+        console.log('Award XP:', e.message);
+      }
+    }
+  </script>
+</body>
+</html>
